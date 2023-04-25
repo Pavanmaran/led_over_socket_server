@@ -32,46 +32,33 @@ bool led_state = false;
 #define KEEPALIVE_INTERVAL CONFIG_EXAMPLE_KEEPALIVE_INTERVAL
 #define KEEPALIVE_COUNT CONFIG_EXAMPLE_KEEPALIVE_COUNT
 
-static const char *TAG = "example";
+static const char *TAG = "LED_over_WIFI";
+
+
 
 static void do_retransmit(const int sock)
 {
-    int len;
-    char rx_buffer[128];
+    char led_str[2];
 
-    do
+    while (1)
     {
-        len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-        if (len < 0)
+        // Convert LED state to string representation
+        led_str[0] = led_state ? '1' : '0';
+        led_str[1] = '\0';
+
+        // Send LED state over socket
+        ssize_t num_bytes_sent = write(sock, led_str, strlen(led_str));
+        if (num_bytes_sent == -1)
         {
-            ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
-        }
-        else if (len == 0)
-        {
-            ESP_LOGW(TAG, "Connection closed");
+            ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
         }
         else
         {
-            rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
-            ESP_LOGI(TAG, "LED State: %d", led_state);
-
-            // Convert LED state to string representation
-            char led_str[2];
-            led_str[0] = led_state ? '1' : '0';
-            led_str[1] = '\0';
-
-            // Send LED state over socket
-            ssize_t num_bytes_sent = write(sock, led_str, strlen(led_str));
-            if (num_bytes_sent == -1)
-            {
-                ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
-            }
-            else
-            {
-                ESP_LOGI(TAG, "Sent LED State: %s", led_str);
-            }
+            ESP_LOGI(TAG, "Sent LED State: %s", led_str);
         }
-    } while (len > 0);
+
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Wait for 1 second before checking LED state again
+    }
 }
 
 static void led_task(void *pvParameters)
